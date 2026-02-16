@@ -2,10 +2,38 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
+require "dry-validation"
 require "dry_params"
 
-# You can add fixtures and/or initialization code here to make experimenting
-# with your gem easier. You can also use a different console, if you like.
+# Simple contract
+class UserContract < Dry::Validation::Contract
+  params do
+    required(:name).filled(:string)
+    required(:age).filled(:integer)
+    optional(:email).maybe(:string)
+  end
+end
+
+# Contract with arrays and hashes
+class PostContract < Dry::Validation::Contract
+  params do
+    required(:title).filled(:string)
+    required(:body).filled(:string)
+    optional(:published).filled(:bool)
+    optional(:tags).filled(:array)
+    optional(:metadata).filled(:hash)
+  end
+end
+
+puts "DryParams v#{DryParams::VERSION} loaded!"
+puts
+puts "Grape (default):"
+puts "  DryParams.from(UserContract)"
+puts
+puts "Rails:"
+puts "  DryParams.from(UserContract, adapter: :rails)"
+puts "  DryParams.from(PostContract, adapter: :rails)"
+puts
 
 require "irb"
 IRB.start(__FILE__)
