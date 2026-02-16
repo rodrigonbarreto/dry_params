@@ -1,31 +1,155 @@
 # DryParams
 
-TODO: Delete this and the text below, and describe your gem
+**Single source of truth for your API params.**
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/dry_params`. To experiment with that code, run `bin/console` for an interactive prompt.
+DryParams generates Grape API parameters and Swagger documentation directly from your `Dry::Validation` contracts. Define your validations once, use them everywhere.
+
+## The Problem
+
+Without DryParams, you duplicate your validation logic:
+
+```ruby
+# 1. Contract (validation)
+class UserCreateContract < Dry::Validation::Contract
+  params do
+    required(:name).filled(:string)
+    required(:email).filled(:string)
+    required(:age).filled(:integer)
+  end
+end
+
+# 2. Grape API (duplicated!)
+params do
+  requires :name, type: String
+  requires :email, type: String
+  requires :age, type: Integer
+end
+```
+
+## The Solution
+
+With DryParams, your contract IS your documentation:
+
+```ruby
+class UserCreateContract < Dry::Validation::Contract
+  params do
+    # @name = User's full name
+    required(:name).filled(:string)
+    # @email = Valid email address
+    required(:email).filled(:string)
+    # @age = Must be 18 or older
+    required(:age).filled(:integer)
+  end
+end
+
+# Grape API - just reference the contract!
+desc "Create user", {
+  params: DryParams.from(UserCreateContract)
+}
+```
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+Add to your Gemfile:
 
-Install the gem and add to the application's Gemfile by executing:
+```ruby
+gem 'dry_params'
+```
 
-    $ bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+Then:
 
-If bundler is not being used to manage dependencies, install the gem by executing:
-
-    $ gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```bash
+bundle install
+```
 
 ## Usage
 
-TODO: Write usage instructions here
+### Basic Usage
+
+```ruby
+DryParams.from(UserCreateContract)
+# => {
+#   name: { type: String, required: true, desc: "User's full name", documentation: { param_type: "body" } },
+#   email: { type: String, required: true, desc: "Valid email address", documentation: { param_type: "body" } },
+#   age: { type: Integer, required: true, desc: "Must be 18 or older", documentation: { param_type: "body" } }
+# }
+```
+
+### With Grape API
+
+```ruby
+module V2
+  class Users < Grape::API
+    resource :users do
+      desc "Create a user", {
+        params: DryParams.from(UserCreateContract)
+      }
+      post do
+        contract = UserCreateContract.new
+        result = contract.call(params)
+        error!({ errors: result.errors.to_h }, 422) if result.failure?
+        # ... create user
+      end
+    end
+  end
+end
+```
+
+### Custom param_type
+
+```ruby
+DryParams.from(UserCreateContract, param_type: 'formData')
+```
+
+### Annotations
+
+Add descriptions to your contract fields using comments:
+
+```ruby
+class LessonCreateContract < Dry::Validation::Contract
+  params do
+    # @title = Title of the lesson
+    required(:title).filled(:string)
+    # @date_lesson = Date when the lesson occurs
+    required(:date_lesson).filled(:date)
+    # @max_students = Maximum number of students allowed
+    required(:max_students).filled(:integer)
+  end
+end
+```
+
+The comments become the `desc` field in the generated params.
+
+## Supported Types
+
+| Dry::Validation | Grape Type |
+|-----------------|------------|
+| `:string` | `String` |
+| `:integer` | `Integer` |
+| `:float` | `Float` |
+| `:decimal` | `Float` |
+| `:bool` | `Grape::API::Boolean` |
+| `:date` | `Date` |
+| `:time` | `Time` |
+| `:array` | `Array` |
+| `:hash` | `Hash` |
+
+## Configuration
+
+```ruby
+# config/initializers/dry_params.rb
+DryParams.configure do |config|
+  config.adapter = :grape  # default
+end
+```
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```bash
+bin/setup
+bundle exec rspec
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+## License
 
-## Contributing
-
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/dry_params.
+MIT
