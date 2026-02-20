@@ -1,154 +1,89 @@
 # DryParams
 
-**Single source of truth for your API params.**
+> **Work in Progress** - This gem is under active development and currently used in production with Grape only.
 
-DryParams generates Grape API parameters and Swagger documentation directly from your `Dry::Validation` contracts. Define your validations once, use them everywhere.
-
-## The Problem
-
-Without DryParams, you duplicate your validation logic:
-
-```ruby
-# 1. Contract (validation)
-class UserCreateContract < Dry::Validation::Contract
-  params do
-    required(:name).filled(:string)
-    required(:email).filled(:string)
-    required(:age).filled(:integer)
-  end
-end
-
-# 2. Grape API (duplicated!)
-params do
-  requires :name, type: String
-  requires :email, type: String
-  requires :age, type: Integer
-end
-```
-
-## The Solution
-
-With DryParams, your contract IS your documentation:
-
-```ruby
-class UserCreateContract < Dry::Validation::Contract
-  params do
-    # @name = User's full name
-    required(:name).filled(:string)
-    # @email = Valid email address
-    required(:email).filled(:string)
-    # @age = Must be 18 or older
-    required(:age).filled(:integer)
-  end
-end
-
-# Grape API - just reference the contract!
-desc "Create user", {
-  params: DryParams.from(UserCreateContract)
-}
-```
+If you use `dry-validation` extensively, you know the pain of duplicating field definitions between your contracts and your API params. This gem eliminates that repetition by automatically generating Grape params (or Rails strong params) directly from your Dry::Validation contracts.
 
 ## Installation
-
-Add to your Gemfile:
 
 ```ruby
 gem 'dry_params'
 ```
 
-Then:
-
-```bash
-bundle install
-```
-
-## Usage
-
-### Basic Usage
+## Grape
 
 ```ruby
-DryParams.from(UserCreateContract)
+class UserContract < Dry::Validation::Contract
+  params do
+    required(:name).filled(:string)
+    required(:age).filled(:integer)
+    optional(:email).maybe(:string)
+  end
+end
+
+DryParams.from(UserContract)
 # => {
-#   name: { type: String, required: true, desc: "User's full name", documentation: { param_type: "body" } },
-#   email: { type: String, required: true, desc: "Valid email address", documentation: { param_type: "body" } },
-#   age: { type: Integer, required: true, desc: "Must be 18 or older", documentation: { param_type: "body" } }
+#   name: { type: String, desc: "Name", required: true, documentation: { param_type: "body" } },
+#   age: { type: Integer, desc: "Age", required: true, documentation: { param_type: "body" } },
+#   email: { type: String, desc: "Email", required: false, documentation: { param_type: "body" } }
 # }
 ```
 
-### With Grape API
+Usage:
 
 ```ruby
-module V2
-  class Users < Grape::API
-    resource :users do
-      desc "Create a user", {
-        params: DryParams.from(UserCreateContract)
-      }
-      post do
-        contract = UserCreateContract.new
-        result = contract.call(params)
-        error!({ errors: result.errors.to_h }, 422) if result.failure?
-        # ... create user
-      end
-    end
-  end
-end
+desc "Create user", { params: DryParams.from(UserContract) }
 ```
 
-### Custom param_type
+For query params:
 
 ```ruby
-DryParams.from(UserCreateContract, param_type: 'formData')
+desc "List users", { params: DryParams.from(UserFilterContract, param_type: 'query') }
 ```
 
-### Annotations
-
-Add descriptions to your contract fields using comments:
+## Rails
 
 ```ruby
-class LessonCreateContract < Dry::Validation::Contract
+DryParams.from(UserContract, adapter: :rails)
+# => [:name, :age, :email]
+```
+
+With arrays and hashes:
+
+```ruby
+class PostContract < Dry::Validation::Contract
   params do
-    # @title = Title of the lesson
     required(:title).filled(:string)
-    # @date_lesson = Date when the lesson occurs
-    required(:date_lesson).filled(:date)
-    # @max_students = Maximum number of students allowed
-    required(:max_students).filled(:integer)
+    optional(:tags).filled(:array)
+    optional(:metadata).filled(:hash)
   end
 end
+
+DryParams.from(PostContract, adapter: :rails)
+# => [:title, { tags: [], metadata: {} }]
 ```
 
-The comments become the `desc` field in the generated params.
-
-## Supported Types
-
-| Dry::Validation | Grape Type |
-|-----------------|------------|
-| `:string` | `String` |
-| `:integer` | `Integer` |
-| `:float` | `Float` |
-| `:decimal` | `Float` |
-| `:bool` | `Grape::API::Boolean` |
-| `:date` | `Date` |
-| `:time` | `Time` |
-| `:array` | `Array` |
-| `:hash` | `Hash` |
-
-## Configuration
+Usage:
 
 ```ruby
-# config/initializers/dry_params.rb
-DryParams.configure do |config|
-  config.adapter = :grape  # default
+def post_params
+  params.permit(DryParams.from(PostContract, adapter: :rails))
 end
 ```
 
 ## Development
 
 ```bash
-bin/setup
-bundle exec rspec
+bundle exec bin/console  # interactive console
+bundle exec rspec        # run tests
 ```
+
+## Status
+
+- [x] Grape adapter (production ready)
+- [ ] Rails adapter (experimental)
+- [ ] Nested contracts support
+- [ ] Custom type mappings
 
 ## License
 
