@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Convert Dry::Validation contracts to framework params"
   spec.description = "Automatically generate Grape params or Rails strong params from Dry::Validation contracts"
-  spec.homepage = "https://github.com/rodrinbarreto/dry_params"
+  spec.homepage = "https://github.com/rodrigonbarreto/dry_params"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
 
