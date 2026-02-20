@@ -29,6 +29,32 @@ DryParams.from(UserContract)
 # }
 ```
 
+### Custom Descriptions
+
+Use comment annotations to provide custom descriptions for your params:
+
+```ruby
+class AppointmentCreateContract < Dry::Validation::Contract
+  params do
+    # @title = Title of the appointment
+    required(:title).filled(:string)
+    # @start_time = Start time in ISO8601 format
+    required(:start_time).filled(:time)
+    # @duration_minutes = Duration in minutes (default: 60)
+    optional(:duration_minutes).filled(:integer)
+  end
+end
+
+DryParams.from(AppointmentCreateContract)
+# => {
+#   title: { type: String, desc: "Title of the appointment", required: true, ... },
+#   start_time: { type: Time, desc: "Start time in ISO8601 format", required: true, ... },
+#   duration_minutes: { type: Integer, desc: "Duration in minutes (default: 60)", required: false, ... }
+# }
+```
+
+The annotation format is `# @field_name = Your description here`. Without annotations, the field name is humanized (e.g., `start_time` becomes "Start time").
+
 Usage:
 
 ```ruby
